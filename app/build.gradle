@@ -48,6 +48,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     implementation project(':openCVLibrary340')
-    compile 'com.rmtheis:tess-two:5.4.1'
+    compile 'com.rmtheis:tess-two:9.0.0'
     apply plugin: 'kotlin-android-extensions'
 }
