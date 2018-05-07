@@ -839,7 +839,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
     private fun DetectLicencePlate(bitmapInput : Bitmap): Mat {
 
-        var results : List<String> = emptyList()
+
         var  matGray = Mat()
         var  matOriginal = Mat(bitmapInput.height,bitmapInput.width, CvType.CV_8UC1)
 
@@ -970,16 +970,6 @@ Parameters:
         cvtColor(input, input, COLOR_RGBA2RGB)
         val result = Mat()
         input.copyTo(result)
-        //So many contours detected
-//        drawContours(result, contourList, -1, Scalar(200.0, 0.0, 0.0), 1) // more than 100~
-//        val logoMat = Utils.loadResource(this, R.mipmap.ic_launcher)
-//        cvtColor(logoMat, logoMat, COLOR_RGBA2RGB)
-
-        //rectList.forEach { rect ->
-            //temp rectangle to findout the rectangle candidate. mostly 3~100
-           // rectangle(result, rect.boundingRect().tl(), rect.boundingRect().br(), Scalar(0.0, 200.0, 0.0), 3)
-//             putText(result, "Edge Detected!", rect.boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(200.0, 0.0, 0.0), 2)
-       // }
 
         Log.i(TAG, "1-7) Floodfill algorithm from more clear contour box, get plates candidates")
         val plateCandidates = getPlateCandidatesFromImage(input, result, rectList)
@@ -991,41 +981,54 @@ Parameters:
 
             plate.img.copyTo(extra)
             SaveImageMAT(extra,"matExtra")
-            val x = Mat()
-            val g = Mat()
-            val final = Mat()
-            val matThreshold = Mat()
 
-            Imgproc.threshold(extra, matThreshold, 100.0, 255.0, Imgproc.THRESH_BINARY_INV)
-            SaveImageMAT(matThreshold,"MatThreshold")
 
-            //cvtColor(extra, g, COLOR_GRAY2RGB)
-           // Canny(matThreshold, x,50.0,100.0, 3, false)
-            //SaveImageMAT(g,"grayFinal")
-            //SaveImageMAT(x,"cannyFinal")
-
-//             val element: Mat = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
-//
-//            Imgproc.erode(matThreshold, matThreshold,element ,  Point(-1.0, -1.0), 1)
-//            SaveImageMAT(matThreshold,"extraEroded")
-//
-//            Imgproc.dilate(matThreshold, matThreshold, element, Point(-1.0, -1.0), 2)
-//            SaveImageMAT(matThreshold,"extraDilated")
-
-            var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
-
-            matThreshold.copyTo(final)
-
-            Utils.matToBitmap(final, image2)
-            SaveImageBitMap(image2, "bitmapFinal")
-            val Text = processImage(image2)
-            if (Text!!.length>3)
+            for (i in 1..3)
             {
-                putText(result, Text, rectList[count].boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(205.0, 0.0, 0.0), 2)
-                results += Text
+               when(i)
+               {
+                   1 ->
+                   {
+                        var tempText = FindLicensePlate(extra, 100.0)
+                   }
+                   2 ->
+                   {
+                       var tempText = FindLicensePlate(extra, 150.0)
+                   }
+                   3 ->
+                   {
+                       var tempText = FindLicensePlate(extra, 170.0)
+                   }
+               }
             }
+
         }
         return result
     }
+
+    private fun FindLicensePlate(extra: Mat, threshold_parameter : Double): Any {
+        var results : List<String> = emptyList()
+        val final = Mat()
+        val matThreshold = Mat()
+        Imgproc.threshold(extra, matThreshold, threshold_parameter, 255.0, Imgproc.THRESH_BINARY_INV)
+        SaveImageMAT(matThreshold,"MatThreshold")
+
+
+        var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
+        matThreshold.copyTo(final)
+
+        Utils.matToBitmap(final, image2)
+        SaveImageBitMap(image2, "bitmapFinal")
+        val Text = processImage(image2)
+        if (Text!!.length>3)
+        {
+           // putText(result, Text, rectList[count].boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(205.0, 0.0, 0.0), 2)
+            results += Text
+        }
+
+        return results
+    }
+
 
 }
