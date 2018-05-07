@@ -339,7 +339,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun getTimeDiff(): Long {
-        val diff = System.currentTimeMillis() - time;
+        val diff = System.currentTimeMillis() - time
         time = System.currentTimeMillis()
         return diff
     }
@@ -524,7 +524,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
         val max = 125 * aspect * 125
         val rmin = aspect - aspect * error
         val rmax = aspect + aspect * error
-        val area = candidate.size.height * candidate.size.width;
+        val area = candidate.size.height * candidate.size.width
 
         var r = candidate.size.width / candidate.size.height
         if (r < 1) r = 1 / r
@@ -535,7 +535,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
     private fun SaveImageMAT(subimg:Mat?, text:String)
     {
-        var TAG = MainActivity.TAG
+        val TAG = MainActivity.TAG
         var bmp: Bitmap? = null
         try {
             bmp = Bitmap.createBitmap(subimg!!.cols(), subimg!!.rows(), Bitmap.Config.ARGB_8888)
@@ -587,7 +587,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
     private fun SaveImageBitMap(subimg:Bitmap?, text:String)
     {
-        var TAG = MainActivity.TAG
+        val TAG = MainActivity.TAG
         var out: FileOutputStream? = null
 
         val currentTime = java.util.Calendar.getInstance()[14]
@@ -657,7 +657,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
             val outstream = FileOutputStream(filepath)
 
             //copy the file to the location specified by filepath
-            var buffer = ByteArray(1024)
+            val buffer = ByteArray(1024)
             var read: Int
             read = instream.read(buffer)
             while (read != -1)
@@ -680,7 +680,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
     fun processImage(image : Bitmap?) : String?
     {
-        var OCRresult: String?
+        val OCRresult: String?
         mTess?.setImage(image)
         OCRresult = mTess?.getUTF8Text()
         return OCRresult
@@ -994,20 +994,27 @@ Parameters:
             val x = Mat()
             val g = Mat()
             val final = Mat()
-            cvtColor(extra, g, COLOR_GRAY2RGB)
-            Canny(g, x,50.0,100.0, 3, false)
-             SaveImageMAT(g,"grayFinal")
-            SaveImageMAT(x,"cannyFinal")
-           // val element: Mat = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 1.0))
-//            Imgproc.erode(x, x,element ,  Point(-1.0, -1.0), 1)
-//            SaveImageMAT(x,"extraEroded")
-//            Imgproc.dilate(x, x, element, Point(-1.0, -1.0), 2)
-//            SaveImageMAT(x,"extraDilated")
+            val matThreshold = Mat()
 
+            Imgproc.threshold(extra, matThreshold, 100.0, 255.0, Imgproc.THRESH_BINARY_INV)
+            SaveImageMAT(matThreshold,"MatThreshold")
 
-            var image2: Bitmap = Bitmap.createBitmap(x!!.cols(), x!!.rows(), Bitmap.Config.ARGB_8888)
+            //cvtColor(extra, g, COLOR_GRAY2RGB)
+           // Canny(matThreshold, x,50.0,100.0, 3, false)
+            //SaveImageMAT(g,"grayFinal")
+            //SaveImageMAT(x,"cannyFinal")
 
-            x.copyTo(final)
+//             val element: Mat = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
+//
+//            Imgproc.erode(matThreshold, matThreshold,element ,  Point(-1.0, -1.0), 1)
+//            SaveImageMAT(matThreshold,"extraEroded")
+//
+//            Imgproc.dilate(matThreshold, matThreshold, element, Point(-1.0, -1.0), 2)
+//            SaveImageMAT(matThreshold,"extraDilated")
+
+            var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
+            matThreshold.copyTo(final)
 
             Utils.matToBitmap(final, image2)
             SaveImageBitMap(image2, "bitmapFinal")
