@@ -14,10 +14,12 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.content.FileProvider
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
+import android.text.TextUtils.replace
 import android.util.Log
 import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
+import com.example.andy.opencv_testlicenceread.utils.ProvinceEnum
 import com.googlecode.tesseract.android.TessBaseAPI
 import com.gorakgarak.anpr.model.Plate
 import kotlinx.android.synthetic.main.activity_main.*
@@ -32,6 +34,7 @@ import java.util.*
 import org.opencv.android.Utils;
 import org.opencv.core.Point
 import java.io.*
+import java.util.regex.Pattern
 
 
 var image: Bitmap ?= Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -973,7 +976,7 @@ Parameters:
 
         Log.i(TAG, "1-7) Floodfill algorithm from more clear contour box, get plates candidates")
         val plateCandidates = getPlateCandidatesFromImage(input, result, rectList)
-        for ((count, plate) in plateCandidates.withIndex())
+        for (plate in plateCandidates)
         {
             plate.str = ""
             val extra = Mat()
@@ -981,35 +984,175 @@ Parameters:
 
             plate.img.copyTo(extra)
             SaveImageMAT(extra,"matExtra")
-
-
+            var textList  = emptyList<String>()
             for (i in 1..3)
             {
                when(i)
                {
                    1 ->
                    {
-                        var tempText = FindLicensePlate(extra, 100.0)
+                        textList += FindLicensePlate(extra, 100.0)
                    }
                    2 ->
                    {
-                       var tempText = FindLicensePlate(extra, 150.0)
+                        textList += FindLicensePlate(extra, 150.0)
                    }
                    3 ->
                    {
-                       var tempText = FindLicensePlate(extra, 170.0)
+                       textList += FindLicensePlate(extra, 170.0)
                    }
                }
             }
+            for (word in textList)
+            {
+                var filteredLicence = FilterLicenceSpain(word)
+            }
+
 
         }
         return result
     }
 
-    private fun FindLicensePlate(extra: Mat, threshold_parameter : Double): Any {
-        var results : List<String> = emptyList()
+    private fun FilterLicenceSpain(word: String): String
+    {
+        var result = ""
+        var replacement = word
+        var mask = emptyList<String>()
+        var charList = replacement.toCharArray()
+
+        for (character in charList)
+        {
+            mask += try {
+                character.toInt()
+                "0"
+            } catch (e : Exception) {
+                "1"
+            }
+        }
+
+        if (mask.count() >= 8)
+        {
+            if (charList.toString().substring(mask.count()-6) == "100001")
+            {
+                replacement = replacement.substring(replacement.length -6)
+                mask = GerenateMak(mask, 6, false)
+            }
+            else if ((charList.toString().substring(mask.count()-7) == "1100001")
+                    || (charList.toString().substring(mask.count()-7) == "1000011")
+                    ||(charList.toString().substring(mask.count()-7) == "0000111"))          {
+                replacement = replacement.substring(replacement.length -7)
+                mask = GerenateMak(mask, 7, false)
+            }
+            else if ((charList.toString().substring(mask.count()-8) == "11000011")
+                    ||(charList.toString().substring(mask.count()-8) == "10000011"))
+            {
+                replacement = replacement.substring(replacement.length -8)
+                mask = GerenateMak(mask, 8, false)
+            }
+            else if (charList.toString().indexOf("111")>0)
+            {
+                replacement = replacement.substring(0, mask.toString().indexOf("111") +3 )
+                mask = GerenateMak(mask, 7, true)
+            }
+        }
+
+        when(mask.count())
+        {
+            6->
+            {
+                if (mask.toString() == "100001")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+            7 ->
+            {
+                if (mask.toString() == "0000111")
+                {
+                    result = replacement
+                }
+
+                if (mask.toString() == "1100001")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,2)))
+                    {
+                        result = replacement
+                    }
+                }
+
+                if (mask.toString() == "1000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+            8->
+            {
+                if (mask.toString() == "11000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,2)))
+                    {
+                        result = replacement
+                    }
+                }
+                if (mask.toString() == "10000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    private fun CheckProvinceEnum(provinceSufix: String): Boolean
+    {
+        var result = false
+
+        try {
+            var province = ProvinceEnum.valueOf(provinceSufix)
+            result = true
+        }
+        catch (e : Exception){}
+
+        return result
+    }
+
+    private fun GerenateMak(mask: List<String>, limit: Int, direction: Boolean): List<String>
+    {
+       var  maskTemp = emptyList<String>()
+         if (direction)
+            {
+                for (i  in 1 until limit)
+                {
+                    maskTemp += mask[i]
+                }
+            }
+            else
+            {
+                for (i in mask.toString().substring(mask.count()-limit))
+                {
+                    maskTemp += i.toString()
+                }
+            }
+
+            return maskTemp;
+    }
+
+    private fun FindLicensePlate(extra: Mat, threshold_parameter : Double): String {
+        var results  = ""
         val final = Mat()
         val matThreshold = Mat()
+        val pattern = Pattern.compile("\t|\n|\r")
+        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
         Imgproc.threshold(extra, matThreshold, threshold_parameter, 255.0, Imgproc.THRESH_BINARY_INV)
         SaveImageMAT(matThreshold,"MatThreshold")
 
@@ -1024,7 +1167,8 @@ Parameters:
         if (Text!!.length>3)
         {
            // putText(result, Text, rectList[count].boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(205.0, 0.0, 0.0), 2)
-            results += Text
+            results = Text.replace(pattern.toRegex(),"")
+            results =results.replace(pattern2.toRegex(),"")
         }
 
         return results
