@@ -985,6 +985,7 @@ Parameters:
             plate.img.copyTo(extra)
             SaveImageMAT(extra,"matExtra")
             var textList  = emptyList<String>()
+            var validWords = emptyList<String>()
             for (i in 1..3)
             {
                when(i)
@@ -1003,10 +1004,12 @@ Parameters:
                    }
                }
             }
-            for (word in textList)
-            {
-                var filteredLicence = FilterLicenceSpain(word)
-            }
+            textList
+                    .asSequence()
+                    .filter { it.length >= 6 }
+                    .map { FilterLicenceSpain(it) }
+                    .filter { !it.isNullOrEmpty() && !validWords.contains(it) }
+                    .forEach { validWords += it }
 
 
         }
@@ -1022,29 +1025,29 @@ Parameters:
 
         for (character in charList)
         {
-            mask += try {
-                character.toInt()
+            mask += if (character.isDigit()) {
                 "0"
-            } catch (e : Exception) {
+            } else {
                 "1"
             }
         }
 
         if (mask.count() >= 8)
         {
-            if (charList.toString().substring(mask.count()-6) == "100001")
+            if(CompareCharList(mask, 6, "100001"))
             {
                 replacement = replacement.substring(replacement.length -6)
                 mask = GerenateMak(mask, 6, false)
             }
-            else if ((charList.toString().substring(mask.count()-7) == "1100001")
-                    || (charList.toString().substring(mask.count()-7) == "1000011")
-                    ||(charList.toString().substring(mask.count()-7) == "0000111"))          {
+            else if (CompareCharList(mask, 7, "1100001")
+                    ||CompareCharList(mask, 7, "1000011")
+                    || CompareCharList(mask, 7, "0000111"))
+            {
                 replacement = replacement.substring(replacement.length -7)
                 mask = GerenateMak(mask, 7, false)
             }
-            else if ((charList.toString().substring(mask.count()-8) == "11000011")
-                    ||(charList.toString().substring(mask.count()-8) == "10000011"))
+            else if ( CompareCharList(mask, 8, "11000011")
+                    || CompareCharList(mask, 8, "10000011"))
             {
                 replacement = replacement.substring(replacement.length -8)
                 mask = GerenateMak(mask, 8, false)
@@ -1113,6 +1116,19 @@ Parameters:
         return result
     }
 
+    private fun CompareCharList(mask: List<String>, limit: Int, compareExpression : String): Boolean
+    {
+        var result = false
+        val text = mask.toString()
+        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
+        val maskString =text.replace(pattern2.toRegex(),"")
+        if (maskString.substring(mask.count()-limit) == compareExpression)
+        {
+            result = true
+        }
+        return result
+    }
+
     private fun CheckProvinceEnum(provinceSufix: String): Boolean
     {
         var result = false
@@ -1144,7 +1160,7 @@ Parameters:
                 }
             }
 
-            return maskTemp;
+            return maskTemp
     }
 
     private fun FindLicensePlate(extra: Mat, threshold_parameter : Double): String {
