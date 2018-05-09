@@ -839,6 +839,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
 
         var  matGray = Mat()
+        var  matCanny = Mat()
         var  matOriginal = Mat(bitmapInput.height,bitmapInput.width, CvType.CV_8UC1)
 
         Utils.bitmapToMat(bitmapInput, matOriginal)
@@ -848,65 +849,9 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
         //Grayscale of the original image Mat
         Imgproc.cvtColor(matOriginal, matGray, Imgproc.COLOR_BGR2GRAY,4)
         SaveImageMAT(matGray,"MatGray")
-        /*
-        Blurs an image using the normalized box filter.
-        *src - input image; it can have any number of channels, which are processed independently, but the depth should be CV_8U, CV_16U, CV_16S, CV_32F or CV_64F.
-        dst - output image of the same size and type as src.
-        ksize - blurring kernel size.
-        * */
-        Imgproc.blur(matGray, matGray, Size(5.0, 5.0))
 
-        SaveImageMAT(matGray,"MatGrayBlurred")
         Log.i(TAG, "1-2) Sobel")
-        val matSobel: Mat = Mat()
-
-        /*
-         * Calculates the first, second, third, or mixed image derivatives using an extended Sobel operator.
-         *  src – input image.
-            dst – output image of the same size and the same number of channels as src .
-            ddepth – output image depth; the following combinations of src.depth() and ddepth are supported:
-            ksize – size of the extended Sobel kernel; it must be 1, 3, 5, or 7.
-            scale – optional scale factor for the computed derivative values; by default, no scaling is applied (see getDerivKernels() for details).
-            delta – optional delta value that is added to the results prior to storing them in dst.
-         */
-        Imgproc.Sobel(matGray, matSobel, CvType.CV_8U, 1, 0, 3, 1.0, 0.0)
-        SaveImageMAT(matSobel,"MatSobel")
-        Log.i(TAG, "1-3) Threshold")
-        val matThreshold: Mat = Mat()
-        /*
-        * Applies a fixed-level threshold to each array element.
-        * The function applies fixed-level thresholding to a single-channel array. The function is typically used to get a bi-level (binary) image out of a grayscale image ("compare" could be also used for this purpose) or for removing a noise, that is, filtering out pixels with too small or too large values. There are several types of thresholding supported by the function. They are determined by type :
-         */
-        Imgproc.threshold(matSobel, matThreshold, 100.0, 255.0, Imgproc.THRESH_OTSU + Imgproc.THRESH_BINARY)
-        SaveImageMAT(matThreshold,"MatThreshold")
-        Log.i(TAG, "1-4) Threshold")
-        /*
-        * Returns a structuring element of the specified size and shape for morphological operations.
-        The function constructs and returns the structuring element that can be further passed to "createMorphologyFilter", "erode", "dilate" or "morphologyEx". But you can also construct an arbitrary binary mask yourself and use it as the structuring element.
-
-Note: When using OpenCV 1.x C API, the created structuring element IplConvKernel* element must be released in the end using cvReleaseStructuringElement(&element).
-    shape - Element shape that could be one of the following:
-        MORPH_RECT - a rectangular structuring element
-        ksize - Size of the structuring element.
-*/
-        val element: Mat = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(17.0, 3.0))
-        /*
-        * Performs advanced morphological transformations.
-        * The function can perform advanced morphological transformations using an erosion and dilation as basic operations
-        *
-        * Parameters:
-            src - Source image. The number of channels can be arbitrary. The depth should be one of CV_8U, CV_16U, CV_16S, CV_32F" or CV_64F".
-            dst - Destination image of the same size and type as src.
-            op - Type of a morphological operation that can be one of the following:
-
-                MORPH_OPEN - an opening operation
-                MORPH_CLOSE - a closing operation
-                MORPH_GRADIENT - a morphological gradient
-                MORPH_TOPHAT - "top hat"
-                MORPH_BLACKHAT - "black hat"
-            kernel - a kernel
-        * */
-        Imgproc.morphologyEx(matThreshold, matThreshold, Imgproc.MORPH_CLOSE, element)
+        Canny(matGray, matCanny,100.0,50.0,3,false)
         Log.i(TAG, "1-5) Find contour of possible plates")
         val contourList: List<MatOfPoint> = mutableListOf()
         val hierarchy = Mat()
@@ -936,31 +881,23 @@ Note: When using OpenCV 1.x C API, the created structuring element IplConvKernel
 
     offset - Optional offset by which every contour point is shifted. This is useful if the contours are extracted from the image ROI and then they should be analyzed in the whole image context.
         * */
-        Imgproc.findContours(matThreshold, contourList, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+        Imgproc.findContours(matCanny, contourList, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
 
 
         Log.i(TAG, "1-6) Get rectangle from the contours")
         val rectList: MutableList<RotatedRect> = mutableListOf()
 
-        //Convert MapOfPoint to MatOfPoint2f
-        contourList.forEach {
-            val p = MatOfPoint2f()
-            it.convertTo(p, CvType.CV_32F)
-            /*
-            * Finds a rotated rectangle of the minimum area enclosing the input 2D point set.
-
-The function calculates and returns the minimum-area bounding rectangle (possibly rotated) for a specified point set. See the OpenCV sample minarea.cpp. Developer should keep in mind that the returned rotatedRect can contain negative indices when data is close the the containing Mat element boundary.
-
-Parameters:
-    points - Input vector of 2D points, stored in:
-
-        std.vector<> or Mat (C++ interface)
-        CvSeq* or CvMat* (C interface)
-        Nx2 numpy array (Python interface)
-            * */
-            val img = Imgproc.minAreaRect(p)
-            if (verifySizes(img)) rectList.add(Imgproc.minAreaRect(p))
+        for (contour in contourList)
+        {
+            if(Imgproc.contourArea(contour)>400)
+            {
+                val p = MatOfPoint2f()
+                contour.convertTo(p, CvType.CV_32F)
+                val img = Imgproc.minAreaRect(p)
+                if (verifySizes(img)) rectList.add(Imgproc.minAreaRect(p))
+            }
         }
+
 
         //draw contour on original colored image to fetch white number plate.
        // val input = inputFrame.rgba()
@@ -1000,7 +937,7 @@ Parameters:
                    }
                    3 ->
                    {
-                       val temp = FindLicensePlate(extra, 130.0)
+                       val temp = FindLicensePlate(extra, 120.0)
                        if (!temp.isNullOrEmpty())
                            textList += temp
                    }
