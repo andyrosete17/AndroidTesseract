@@ -17,6 +17,8 @@ import android.support.v7.app.AppCompatActivity
 import android.text.TextUtils.replace
 import android.util.Log
 import android.view.WindowManager
+import android.widget.ArrayAdapter
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import com.example.andy.opencv_testlicenceread.utils.ProvinceEnum
@@ -46,6 +48,7 @@ lateinit var imageFilePath: String
 private val GALLERY = 1
 private val CAMERA = 2
 var imageLoaded : Boolean = false
+private lateinit var listView: ListView
 
 var time: Long = System.currentTimeMillis()
 
@@ -85,14 +88,6 @@ class MainActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this@MainActivity,
                 arrayOf(Manifest.permission.CAMERA),
                 1)
-
-//        textView =  findViewById(R.id.text_numberplate)
-
-
-//        _cameraBridgeViewBase = findViewById(R.id.main_surface)
-//        _cameraBridgeViewBase!!.visibility = SurfaceView.VISIBLE
-//        _cameraBridgeViewBase!!.setCvCameraViewListener(this)
-
 
         datapath = filesDir.toString() + "/tesseract/"
 
@@ -976,6 +971,8 @@ Parameters:
 
         Log.i(TAG, "1-7) Floodfill algorithm from more clear contour box, get plates candidates")
         val plateCandidates = getPlateCandidatesFromImage(input, result, rectList)
+        var textList  = emptyList<String>()
+        var validWords = emptyList<String>()
         for (plate in plateCandidates)
         {
             plate.str = ""
@@ -984,26 +981,33 @@ Parameters:
 
             plate.img.copyTo(extra)
             SaveImageMAT(extra,"matExtra")
-            var textList  = emptyList<String>()
-            var validWords = emptyList<String>()
+
             for (i in 1..3)
             {
                when(i)
                {
                    1 ->
                    {
-                        textList += FindLicensePlate(extra, 100.0)
+                         val temp = FindLicensePlate(extra, 80.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
                    }
                    2 ->
                    {
-                        textList += FindLicensePlate(extra, 150.0)
+                       val temp = FindLicensePlate(extra, 100.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
                    }
                    3 ->
                    {
-                       textList += FindLicensePlate(extra, 170.0)
+                       val temp = FindLicensePlate(extra, 130.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
                    }
                }
             }
+
+        }
             textList
                     .asSequence()
                     .filter { it.length >= 6 }
@@ -1011,8 +1015,19 @@ Parameters:
                     .filter { !it.isNullOrEmpty() && !validWords.contains(it) }
                     .forEach { validWords += it }
 
+            if (validWords.count()>0)
+            {
+                val listItems = arrayOfNulls<String>(validWords.size)
+                listView =findViewById(R.id.recipe_list_view)
+                for(i in 0 until validWords.size)
+                {
+                        listItems[i] =validWords[i]
+                }
+                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, listItems)
+                listView.adapter = adapter
+            }
 
-        }
+
         return result
     }
 
@@ -1059,11 +1074,13 @@ Parameters:
             }
         }
 
-        when(mask.count())
+        var maskString = GetStringFromList(mask)
+
+        when(maskString.count())
         {
             6->
             {
-                if (mask.toString() == "100001")
+                if (maskString == "100001")
                 {
                     if (CheckProvinceEnum(replacement.substring(0,1)))
                     {
@@ -1073,12 +1090,12 @@ Parameters:
             }
             7 ->
             {
-                if (mask.toString() == "0000111")
+                if (maskString == "0000111")
                 {
                     result = replacement
                 }
 
-                if (mask.toString() == "1100001")
+                if (maskString == "1100001")
                 {
                     if (CheckProvinceEnum(replacement.substring(0,2)))
                     {
@@ -1086,7 +1103,7 @@ Parameters:
                     }
                 }
 
-                if (mask.toString() == "1000011")
+                if (maskString == "1000011")
                 {
                     if (CheckProvinceEnum(replacement.substring(0,1)))
                     {
@@ -1096,14 +1113,14 @@ Parameters:
             }
             8->
             {
-                if (mask.toString() == "11000011")
+                if (maskString == "11000011")
                 {
                     if (CheckProvinceEnum(replacement.substring(0,2)))
                     {
                         result = replacement
                     }
                 }
-                if (mask.toString() == "10000011")
+                if (maskString == "10000011")
                 {
                     if (CheckProvinceEnum(replacement.substring(0,1)))
                     {
@@ -1116,12 +1133,22 @@ Parameters:
         return result
     }
 
+    private  fun GetStringFromList(list:List<String>):String
+    {
+        val text = list.toString()
+        var result = ""
+        val pattern = Pattern.compile("\t|\n|\r")
+        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
+        result = text.replace(pattern.toRegex(),"")
+        result =  text.replace(pattern2.toRegex(),"")
+
+        return result
+    }
+
     private fun CompareCharList(mask: List<String>, limit: Int, compareExpression : String): Boolean
     {
         var result = false
-        val text = mask.toString()
-        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
-        val maskString =text.replace(pattern2.toRegex(),"")
+        val maskString =GetStringFromList(mask)
         if (maskString.substring(mask.count()-limit) == compareExpression)
         {
             result = true
@@ -1145,6 +1172,7 @@ Parameters:
     private fun GerenateMak(mask: List<String>, limit: Int, direction: Boolean): List<String>
     {
        var  maskTemp = emptyList<String>()
+        var maskString = GetStringFromList(mask)
          if (direction)
             {
                 for (i  in 1 until limit)
@@ -1154,7 +1182,7 @@ Parameters:
             }
             else
             {
-                for (i in mask.toString().substring(mask.count()-limit))
+                for (i in maskString.substring(mask.count()-limit))
                 {
                     maskTemp += i.toString()
                 }
@@ -1182,7 +1210,6 @@ Parameters:
         val Text = processImage(image2)
         if (Text!!.length>3)
         {
-           // putText(result, Text, rectList[count].boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(205.0, 0.0, 0.0), 2)
             results = Text.replace(pattern.toRegex(),"")
             results =results.replace(pattern2.toRegex(),"")
         }

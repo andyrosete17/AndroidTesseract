@@ -7,24 +7,6 @@
     android:layout_height="match_parent"
     tools:context="com.example.andy.opencv_testlicenceread.MainActivity">
 
-    <!--<org.opencv.android.JavaCameraView-->
-        <!--android:id="@+id/main_surface"-->
-        <!--android:layout_width="fill_parent"-->
-        <!--android:layout_height="fill_parent"-->
-        <!--android:layout_alignEnd="@+id/text_numberplate"-->
-        <!--android:layout_alignParentTop="true"-->
-        <!--android:screenOrientation="portrait" />-->
-
-    <!--<TextView-->
-        <!--android:id="@+id/text_numberplate"-->
-        <!--android:layout_width="wrap_content"-->
-        <!--android:layout_height="wrap_content"-->
-        <!--android:layout_alignParentRight="true"-->
-        <!--android:background="@android:color/black"-->
-        <!--android:textColor="@android:color/white"-->
-        <!--android:textSize="50sp"-->
-        <!--tools:text="70S2034"-->
-        <!--android:screenOrientation="portrait"/>-->
     <ImageView
         android:id="@+id/photoImage"
         android:layout_width="373dp"
@@ -72,6 +54,7 @@
         app:layout_constraintVertical_bias="0.0" />
 
     <ListView
+        android:id="@+id/recipe_list_view"
         android:layout_width="371dp"
         android:layout_height="96dp"
         android:layout_marginBottom="8dp"
