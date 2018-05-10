@@ -735,19 +735,19 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
                {
                    1 ->
                    {
-                         val temp = FindLicensePlate(extra, 80.0)
+                       val temp = FindLicensePlate(extra, 50.0)
                        if (!temp.isNullOrEmpty())
                            textList += temp
                    }
                    2 ->
                    {
-                       val temp = FindLicensePlate(extra, 100.0)
+                       val temp = FindLicensePlate(extra, 80.0)
                        if (!temp.isNullOrEmpty())
                            textList += temp
                    }
                    3 ->
                    {
-                       val temp = FindLicensePlate(extra, 120.0)
+                       val temp = FindLicensePlate(extra, 100.0)
                        if (!temp.isNullOrEmpty())
                            textList += temp
                    }
@@ -942,18 +942,45 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
         var results  = ""
         val final = Mat()
         val matThreshold = Mat()
+        val matBlur = Mat()
         val pattern = Pattern.compile("\t|\n|\r")
         val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
-        Imgproc.threshold(extra, matThreshold, threshold_parameter, 255.0, Imgproc.THRESH_BINARY_INV)
+        blur(extra, matBlur, Size(2.0, 2.0))
+        SaveImageMAT(matBlur,"MatBlur")
+        var blur: Bitmap = Bitmap.createBitmap(matBlur!!.cols(), matBlur!!.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(matBlur, blur)
+        Imgproc.threshold(matBlur, matThreshold, threshold_parameter, 255.0, Imgproc.THRESH_BINARY_INV)
+
+        var threshold: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
+        var erode: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+        var dilate: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
         SaveImageMAT(matThreshold,"MatThreshold")
+        Utils.matToBitmap(matThreshold, threshold)
 
-
+        var elementDilation = Imgproc.getStructuringElement(CV_SHAPE_CROSS,Size(1.0,1.0))
+        var elementErosion = Imgproc.getStructuringElement(CV_SHAPE_CROSS,Size(2.0,2.0))
+        Imgproc.erode(matThreshold, matThreshold, elementErosion )
+        SaveImageMAT(matThreshold,"MatErode")
+        Utils.matToBitmap(matThreshold, erode)
+        Imgproc.dilate(matThreshold, matThreshold, elementDilation)
+        SaveImageMAT(matThreshold,"MatDilate")
+        Utils.matToBitmap(matThreshold, dilate)
         var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
+
+
 
         matThreshold.copyTo(final)
 
         Utils.matToBitmap(final, image2)
+
         SaveImageBitMap(image2, "bitmapFinal")
+        val TextThres = processImage(threshold)
+        val TextBlur = processImage(blur)
+        val TextErode = processImage(erode)
+        val TextDilate = processImage(dilate)
         val Text = processImage(image2)
         if (Text!!.length>3)
         {
