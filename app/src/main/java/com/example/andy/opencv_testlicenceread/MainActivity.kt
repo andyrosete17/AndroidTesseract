@@ -14,10 +14,14 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.content.FileProvider
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
+import android.text.TextUtils.replace
 import android.util.Log
 import android.view.WindowManager
+import android.widget.ArrayAdapter
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import com.example.andy.opencv_testlicenceread.utils.ProvinceEnum
 import com.googlecode.tesseract.android.TessBaseAPI
 import com.gorakgarak.anpr.model.Plate
 import kotlinx.android.synthetic.main.activity_main.*
@@ -32,6 +36,7 @@ import java.util.*
 import org.opencv.android.Utils;
 import org.opencv.core.Point
 import java.io.*
+import java.util.regex.Pattern
 
 
 var image: Bitmap ?= Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -43,6 +48,7 @@ lateinit var imageFilePath: String
 private val GALLERY = 1
 private val CAMERA = 2
 var imageLoaded : Boolean = false
+private lateinit var listView: ListView
 
 var time: Long = System.currentTimeMillis()
 
@@ -82,14 +88,6 @@ class MainActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this@MainActivity,
                 arrayOf(Manifest.permission.CAMERA),
                 1)
-
-//        textView =  findViewById(R.id.text_numberplate)
-
-
-//        _cameraBridgeViewBase = findViewById(R.id.main_surface)
-//        _cameraBridgeViewBase!!.visibility = SurfaceView.VISIBLE
-//        _cameraBridgeViewBase!!.setCvCameraViewListener(this)
-
 
         datapath = filesDir.toString() + "/tesseract/"
 
@@ -839,7 +837,7 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
 
     private fun DetectLicencePlate(bitmapInput : Bitmap): Mat {
 
-        var results : List<String> = emptyList()
+
         var  matGray = Mat()
         var  matOriginal = Mat(bitmapInput.height,bitmapInput.width, CvType.CV_8UC1)
 
@@ -970,20 +968,12 @@ Parameters:
         cvtColor(input, input, COLOR_RGBA2RGB)
         val result = Mat()
         input.copyTo(result)
-        //So many contours detected
-//        drawContours(result, contourList, -1, Scalar(200.0, 0.0, 0.0), 1) // more than 100~
-//        val logoMat = Utils.loadResource(this, R.mipmap.ic_launcher)
-//        cvtColor(logoMat, logoMat, COLOR_RGBA2RGB)
-
-        //rectList.forEach { rect ->
-            //temp rectangle to findout the rectangle candidate. mostly 3~100
-           // rectangle(result, rect.boundingRect().tl(), rect.boundingRect().br(), Scalar(0.0, 200.0, 0.0), 3)
-//             putText(result, "Edge Detected!", rect.boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(200.0, 0.0, 0.0), 2)
-       // }
 
         Log.i(TAG, "1-7) Floodfill algorithm from more clear contour box, get plates candidates")
         val plateCandidates = getPlateCandidatesFromImage(input, result, rectList)
-        for ((count, plate) in plateCandidates.withIndex())
+        var textList  = emptyList<String>()
+        var validWords = emptyList<String>()
+        for (plate in plateCandidates)
         {
             plate.str = ""
             val extra = Mat()
@@ -991,41 +981,241 @@ Parameters:
 
             plate.img.copyTo(extra)
             SaveImageMAT(extra,"matExtra")
-            val x = Mat()
-            val g = Mat()
-            val final = Mat()
-            val matThreshold = Mat()
 
-            Imgproc.threshold(extra, matThreshold, 100.0, 255.0, Imgproc.THRESH_BINARY_INV)
-            SaveImageMAT(matThreshold,"MatThreshold")
-
-            //cvtColor(extra, g, COLOR_GRAY2RGB)
-           // Canny(matThreshold, x,50.0,100.0, 3, false)
-            //SaveImageMAT(g,"grayFinal")
-            //SaveImageMAT(x,"cannyFinal")
-
-//             val element: Mat = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
-//
-//            Imgproc.erode(matThreshold, matThreshold,element ,  Point(-1.0, -1.0), 1)
-//            SaveImageMAT(matThreshold,"extraEroded")
-//
-//            Imgproc.dilate(matThreshold, matThreshold, element, Point(-1.0, -1.0), 2)
-//            SaveImageMAT(matThreshold,"extraDilated")
-
-            var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
-
-            matThreshold.copyTo(final)
-
-            Utils.matToBitmap(final, image2)
-            SaveImageBitMap(image2, "bitmapFinal")
-            val Text = processImage(image2)
-            if (Text!!.length>3)
+            for (i in 1..3)
             {
-                putText(result, Text, rectList[count].boundingRect().tl(), FONT_HERSHEY_COMPLEX, 0.8, Scalar(205.0, 0.0, 0.0), 2)
-                results += Text
+               when(i)
+               {
+                   1 ->
+                   {
+                         val temp = FindLicensePlate(extra, 80.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
+                   }
+                   2 ->
+                   {
+                       val temp = FindLicensePlate(extra, 100.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
+                   }
+                   3 ->
+                   {
+                       val temp = FindLicensePlate(extra, 130.0)
+                       if (!temp.isNullOrEmpty())
+                           textList += temp
+                   }
+               }
             }
+
+        }
+            textList
+                    .asSequence()
+                    .filter { it.length >= 6 }
+                    .map { FilterLicenceSpain(it) }
+                    .filter { !it.isNullOrEmpty() && !validWords.contains(it) }
+                    .forEach { validWords += it }
+
+            if (validWords.count()>0)
+            {
+                val listItems = arrayOfNulls<String>(validWords.size)
+                listView =findViewById(R.id.recipe_list_view)
+                for(i in 0 until validWords.size)
+                {
+                        listItems[i] =validWords[i]
+                }
+                val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, listItems)
+                listView.adapter = adapter
+            }
+
+
+        return result
+    }
+
+    private fun FilterLicenceSpain(word: String): String
+    {
+        var result = ""
+        var replacement = word
+        var mask = emptyList<String>()
+        var charList = replacement.toCharArray()
+
+        for (character in charList)
+        {
+            mask += if (character.isDigit()) {
+                "0"
+            } else {
+                "1"
+            }
+        }
+
+        if (mask.count() >= 8)
+        {
+            if(CompareCharList(mask, 6, "100001"))
+            {
+                replacement = replacement.substring(replacement.length -6)
+                mask = GerenateMak(mask, 6, false)
+            }
+            else if (CompareCharList(mask, 7, "1100001")
+                    ||CompareCharList(mask, 7, "1000011")
+                    || CompareCharList(mask, 7, "0000111"))
+            {
+                replacement = replacement.substring(replacement.length -7)
+                mask = GerenateMak(mask, 7, false)
+            }
+            else if ( CompareCharList(mask, 8, "11000011")
+                    || CompareCharList(mask, 8, "10000011"))
+            {
+                replacement = replacement.substring(replacement.length -8)
+                mask = GerenateMak(mask, 8, false)
+            }
+            else if (charList.toString().indexOf("111")>0)
+            {
+                replacement = replacement.substring(0, mask.toString().indexOf("111") +3 )
+                mask = GerenateMak(mask, 7, true)
+            }
+        }
+
+        var maskString = GetStringFromList(mask)
+
+        when(maskString.count())
+        {
+            6->
+            {
+                if (maskString == "100001")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+            7 ->
+            {
+                if (maskString == "0000111")
+                {
+                    result = replacement
+                }
+
+                if (maskString == "1100001")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,2)))
+                    {
+                        result = replacement
+                    }
+                }
+
+                if (maskString == "1000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+            8->
+            {
+                if (maskString == "11000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,2)))
+                    {
+                        result = replacement
+                    }
+                }
+                if (maskString == "10000011")
+                {
+                    if (CheckProvinceEnum(replacement.substring(0,1)))
+                    {
+                        result = replacement
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    private  fun GetStringFromList(list:List<String>):String
+    {
+        val text = list.toString()
+        var result = ""
+        val pattern = Pattern.compile("\t|\n|\r")
+        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
+        result = text.replace(pattern.toRegex(),"")
+        result =  text.replace(pattern2.toRegex(),"")
+
+        return result
+    }
+
+    private fun CompareCharList(mask: List<String>, limit: Int, compareExpression : String): Boolean
+    {
+        var result = false
+        val maskString =GetStringFromList(mask)
+        if (maskString.substring(mask.count()-limit) == compareExpression)
+        {
+            result = true
         }
         return result
     }
+
+    private fun CheckProvinceEnum(provinceSufix: String): Boolean
+    {
+        var result = false
+
+        try {
+            var province = ProvinceEnum.valueOf(provinceSufix)
+            result = true
+        }
+        catch (e : Exception){}
+
+        return result
+    }
+
+    private fun GerenateMak(mask: List<String>, limit: Int, direction: Boolean): List<String>
+    {
+       var  maskTemp = emptyList<String>()
+        var maskString = GetStringFromList(mask)
+         if (direction)
+            {
+                for (i  in 1 until limit)
+                {
+                    maskTemp += mask[i]
+                }
+            }
+            else
+            {
+                for (i in maskString.substring(mask.count()-limit))
+                {
+                    maskTemp += i.toString()
+                }
+            }
+
+            return maskTemp
+    }
+
+    private fun FindLicensePlate(extra: Mat, threshold_parameter : Double): String {
+        var results  = ""
+        val final = Mat()
+        val matThreshold = Mat()
+        val pattern = Pattern.compile("\t|\n|\r")
+        val pattern2 = Pattern.compile("[^0-9a-zA-Z]")
+        Imgproc.threshold(extra, matThreshold, threshold_parameter, 255.0, Imgproc.THRESH_BINARY_INV)
+        SaveImageMAT(matThreshold,"MatThreshold")
+
+
+        var image2: Bitmap = Bitmap.createBitmap(matThreshold!!.cols(), matThreshold!!.rows(), Bitmap.Config.ARGB_8888)
+
+        matThreshold.copyTo(final)
+
+        Utils.matToBitmap(final, image2)
+        SaveImageBitMap(image2, "bitmapFinal")
+        val Text = processImage(image2)
+        if (Text!!.length>3)
+        {
+            results = Text.replace(pattern.toRegex(),"")
+            results =results.replace(pattern2.toRegex(),"")
+        }
+
+        return results
+    }
+
 
 }
