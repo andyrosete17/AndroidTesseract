@@ -2,6 +2,8 @@ package com.example.andy.opencv_testlicenceread
 
 import android.Manifest
 import android.app.Activity
+import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
@@ -37,6 +39,13 @@ import org.opencv.android.Utils;
 import org.opencv.core.Point
 import java.io.*
 import java.util.regex.Pattern
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.BatteryManager
+import com.example.andy.opencv_testlicenceread.utils.StatisticsDetails
+import java.util.concurrent.Delayed
 
 
 var image: Bitmap ?= Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -50,11 +59,17 @@ private val CAMERA = 2
 var imageLoaded : Boolean = false
 private lateinit var listView: ListView
 
+public lateinit var  context:Context
+
+
 var time: Long = System.currentTimeMillis()
 
-class MainActivity : AppCompatActivity() {
-   // private var _cameraBridgeViewBase: CameraBridgeViewBase? = null
+public class MainActivity : AppCompatActivity(), SensorEventListener {
 
+
+    // private var _cameraBridgeViewBase: CameraBridgeViewBase? = null
+   lateinit var _sensorManager: SensorManager
+    var battery: BatteryManager? = null
 
     private var _baseLoaderCallback = object : BaseLoaderCallback(this)
     {
@@ -107,8 +122,16 @@ class MainActivity : AppCompatActivity() {
 
             tesseractBtn.setOnClickListener()
             {
+                val statistic= StatisticsDetails()
+                statistic.GetDetails(context)
                 TesseractExecution()
+                statistic.GetDetails(context)
             }
+
+        _sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        battery = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+
+        context = this
     }
 
 
@@ -126,6 +149,10 @@ class MainActivity : AppCompatActivity() {
             Log.i(TAG, "OpenCV library found inside package. Using it!")
             _baseLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS)
         }
+
+    _sensorManager!!.registerListener(this,
+            _sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE),
+            SensorManager.SENSOR_DELAY_NORMAL)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
@@ -749,10 +776,18 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
                     imageFilePath =data.data.path
                     try
                     {
-                        val selectedImageURI = data.data
-                        val imageFile = File(getRealPathFromURI(selectedImageURI))
+                        val imageFile = File(getRealPathFromURI(contentURI))
                         imageFilePath = imageFile.absolutePath
-                        photoImage.setImageBitmap(setScaleBitmap())
+
+                        val context: Context = this
+                        try {
+                            val bm = BitmapFactory.decodeStream(context.contentResolver.openInputStream(contentURI))
+                            photoImage.setImageBitmap(bm)
+                        } catch (e: FileNotFoundException) {
+                            e.printStackTrace()
+                        }
+
+                       // photoImage.setImageBitmap(setScaleBitmap())
                         imageLoaded = true
                     }
                     catch (e: IOException) {
@@ -789,15 +824,22 @@ patchType – Depth of the extracted pixels. By default, they have the same dept
         val imageViewWidth = photoImage.width
         val imageViewHeight = photoImage.height
 
+//        val bmOptions = BitmapFactory.Options()
+//        bmOptions.inJustDecodeBounds = true
+//        BitmapFactory.decodeResource(resources,photoImage.id, bmOptions)
+
         val bmOptions = BitmapFactory.Options()
         bmOptions.inJustDecodeBounds = true
         BitmapFactory.decodeFile(imageFilePath, bmOptions)
+
         val bitmapWidth = bmOptions.outWidth
         val bitmapHeight = bmOptions.outHeight
 
         val scaleFactor = Math.min(bitmapWidth/imageViewWidth, bitmapHeight/imageViewHeight)
         bmOptions.inSampleSize = scaleFactor
         bmOptions.inJustDecodeBounds = false
+
+
 
         return BitmapFactory.decodeFile(imageFilePath, bmOptions)
     }
@@ -1217,5 +1259,13 @@ Parameters:
         return results
     }
 
+    override fun onSensorChanged(p0: SensorEvent?) {
+        val statistic = StatisticsDetails()
+        statistic.GetDetails(context)
+    }
 
+    override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
+        val statistic = StatisticsDetails()
+        statistic.GetDetails(context)
+    }
 }
