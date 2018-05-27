@@ -1,32 +1,26 @@
 package com.example.andy.opencv_testlicenceread.utils
-import android.app.Activity
-import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.text.TextUtils
 import android.widget.Toast
+import com.example.andy.opencv_testlicenceread.model.StatisticalDTO
 import org.opencv.core.CvException
 import java.io.BufferedReader
+import kotlin.math.absoluteValue
 
 
-public class StatisticsDetails
+class StatisticsDetails
 {
     var  result  = ""
+    var resultStatistic = StatisticalDTO()
 
-
-    public fun  GetDetails(context: Context)
-    {
-        GetDetailsResult(context)
-    }
-
-    fun GetDetailsResult(context: Context)
+    fun GetDetailsResult(context: Context) : StatisticalDTO
     {
         GetCPUDetails()
         GetCpuUsageStatistic()
         GetBatteryDetails(context)
-        Toast.makeText(context, result, Toast.LENGTH_LONG).show()
+        return resultStatistic
     }
 
     fun GetBatteryDetails(context: Context)
@@ -41,6 +35,8 @@ public class StatisticsDetails
             var level = batteryService.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
 
             result += "Battery Temp: " + tempExtra.toString() + "oC\nBattery level: " + level + "%"
+            resultStatistic.BatteryTemp = tempExtra
+            resultStatistic.BatteryLevel = level
         }
     }
 
@@ -59,6 +55,7 @@ public class StatisticsDetails
             var temp = (reader.toFloat()) / 1000.0f
 
             result = "CPU Temp: " + temp.toString() + "oC\n"
+            resultStatistic.CpuTemp = temp
 
         }
         catch (e: CvException) {
@@ -88,7 +85,6 @@ public class StatisticsDetails
 
     fun GetCpuUsageStatistic()
     {
-
         var tempString = ExecuteTop()
 
         tempString = tempString.replace(",", "")
@@ -105,18 +101,20 @@ public class StatisticsDetails
         tempString = tempString.trim()
 
         var myString: Array<String> =  tempString.split(" ").toTypedArray()
-        var cpuUsageAsInt = arrayOfNulls<Int>(myString.size)
 
         for (i in 1 until myString.size)
         {
             myString[i] = myString[i].trim()
-            cpuUsageAsInt[i] = Integer.parseInt(myString[i])
         }
-        result += "CPU Usage - User: " + cpuUsageAsInt[0].toString() + "%\n"
-        result += "CPU Usage - System: " + cpuUsageAsInt[1].toString() + "%\n"
-        result += "CPU Usage - IOW: " + cpuUsageAsInt[2].toString() + "%\n"
-        result += "CPU Usage - IRQ: " + cpuUsageAsInt[3].toString() + "%\n"
+        result += "CPU Usage - User: " + myString[0] + "%\n"
+        result += "CPU Usage - System: " + myString[1] + "%\n"
+        result += "CPU Usage - IOW: " + myString[2] + "%\n"
+        result += "CPU Usage - IRQ: " + myString[3] + "%\n"
 
+        resultStatistic.CpuUser = myString[0]
+        resultStatistic.CpuSystem = myString[1]
+        resultStatistic.CpuIOW = myString[2]
+        resultStatistic.CpuIRQ = myString[3]
     }
 
 }

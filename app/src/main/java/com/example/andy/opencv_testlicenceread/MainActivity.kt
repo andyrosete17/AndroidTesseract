@@ -44,8 +44,11 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.BatteryManager
+import android.view.View
+import com.example.andy.opencv_testlicenceread.model.StatisticalDTO
 import com.example.andy.opencv_testlicenceread.utils.StatisticsDetails
 import java.util.concurrent.Delayed
+
 
 
 var image: Bitmap ?= Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -61,9 +64,7 @@ private lateinit var listView: ListView
 
 public lateinit var  context:Context
 
-
 var time: Long = System.currentTimeMillis()
-
 public class MainActivity : AppCompatActivity(), SensorEventListener {
 
 
@@ -123,9 +124,16 @@ public class MainActivity : AppCompatActivity(), SensorEventListener {
             tesseractBtn.setOnClickListener()
             {
                 val statistic= StatisticsDetails()
-                statistic.GetDetails(context)
+                val previous = statistic.GetDetailsResult(context)
+
+                var start = System.currentTimeMillis()
                 TesseractExecution()
-                statistic.GetDetails(context)
+                val after=  statistic.GetDetailsResult(context)
+                var end = System.currentTimeMillis()
+
+                var time = end -start
+                after.TimeSpend = time
+                ShowStatisticalResult(previous, after)
             }
 
         _sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -134,12 +142,6 @@ public class MainActivity : AppCompatActivity(), SensorEventListener {
         context = this
     }
 
-
-//    public override fun onPause() {
-//        super.onPause()
-//        disableCamera()
-//    }
-//
     public override fun onResume() {
         super.onResume()
         if (!OpenCVLoader.initDebug()) {
@@ -1261,11 +1263,29 @@ Parameters:
 
     override fun onSensorChanged(p0: SensorEvent?) {
         val statistic = StatisticsDetails()
-        statistic.GetDetails(context)
+        statistic.GetDetailsResult(context)
     }
 
     override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
         val statistic = StatisticsDetails()
-        statistic.GetDetails(context)
+        statistic.GetDetailsResult(context)
     }
+
+     private fun ShowStatisticalResult(previous : StatisticalDTO, after :StatisticalDTO)
+        {
+
+            //var time = after.TimeSpend - previous.TimeSpend
+            var time = after.TimeSpend
+            var result = "Results\n"
+            result += "CpuTemp = " + Math.round(previous.CpuTemp) + " + " + Math.round((after.CpuTemp - previous.CpuTemp)) + "oC\n"
+            result +=  "CpuUser = " + previous.CpuUser + " + " + (after.CpuUser.toInt() - previous.CpuUser.toInt()).toString() + "%\n"
+            result +=  "CpuSystem = " + previous.CpuSystem + " + " + (after.CpuSystem.toInt() - previous.CpuSystem.toInt()).toString() + "%\n"
+            result +=  "CpuIOW = " + previous.CpuIOW + " + " + (after.CpuIOW.toInt() - previous.CpuIOW.toInt()).toString() + "%\n"
+            result +=  "CpuIRQ = " + previous.CpuIRQ + " + " + (after.CpuIRQ.toInt() - previous.CpuIRQ.toInt()).toString() + "%\n"
+            result +=  "BatteryTemp = " + previous.BatteryTemp + " + " + (after.BatteryTemp - previous.BatteryTemp).toString() + "oC\n"
+            result +=  "BatteryLevel = " + previous.BatteryLevel + " + " + (after.BatteryLevel - previous.BatteryLevel).toString() + "%\n"
+            result +=  "TimeSpend = " + time + "ms\n"
+
+            Toast.makeText(context, result, Toast.LENGTH_LONG).show()
+        }
 }
